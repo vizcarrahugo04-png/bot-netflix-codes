@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Consulta de Código Netflix</title>
+    <style>
+        body { font-family: Arial; text-align: center; background-color: #141414; color: white; padding-top: 50px; }
+        input { padding: 10px; width: 250px; border-radius: 5px; border: none; }
+        button { padding: 10px 20px; background-color: #E50914; color: white; border: none; border-radius: 5px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h1>NETFLIX - Consulta</h1>
+    <p>Ingresa el correo de tu perfil:</p>
+    <form action="/consultar" method="post">
+        <input type="text" name="correo" placeholder="correo@ejemplo.com" required>
+        <button type="submit">Consultar</button>
+    </form>
+</body>
+</html>
