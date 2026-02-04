@@ -1,19 +1,126 @@
 <!DOCTYPE html>
-<html>
+<html lang="es">
 <head>
-    <title>Consulta de Código Netflix</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Keydd Streaming - Codes</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
-        body { font-family: Arial; text-align: center; background-color: #141414; color: white; padding-top: 50px; }
-        input { padding: 10px; width: 250px; border-radius: 5px; border: none; }
-        button { padding: 10px 20px; background-color: #E50914; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        body {
+            background-color: #000000;
+            background-image: radial-gradient(circle, #330000 1px, transparent 1px);
+            background-size: 40px 40px;
+            color: white;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        .card {
+            background-color: rgba(20, 20, 20, 0.95);
+            border-radius: 20px;
+            border: 1px solid rgba(255, 0, 0, 0.2);
+            box-shadow: 0 0 40px rgba(229, 9, 20, 0.2);
+            backdrop-filter: blur(10px);
+        }
+        .netflix-btn { background-color: #E50914; transition: all 0.3s ease; }
+        .netflix-btn:hover { background-color: #ff0f1e; transform: translateY(-2px); box-shadow: 0 5px 15px rgba(229, 9, 20, 0.4); }
+        
+        .disney-btn { background-color: #0063e5; transition: all 0.3s ease; }
+        .disney-btn:hover { background-color: #0076ff; transform: translateY(-2px); box-shadow: 0 5px 15px rgba(0, 99, 229, 0.4); }
+        
+        .prime-btn { background-color: #00a8e1; transition: all 0.3s ease; }
+        .prime-btn:hover { background-color: #00c3ff; transform: translateY(-2px); box-shadow: 0 5px 15px rgba(0, 168, 225, 0.4); }
+
+        .logo-anim { animation: pulse 3s infinite; }
+        @keyframes pulse {
+            0% { opacity: 0.8; transform: scale(1); }
+            50% { opacity: 1; transform: scale(1.05); }
+            100% { opacity: 0.8; transform: scale(1); }
+        }
+
+        /* Estilo para el botón flotante */
+        .whatsapp-float {
+            position: fixed;
+            bottom: 25px;
+            right: 25px;
+            background-color: #25d366;
+            color: white;
+            width: 60px;
+            height: 60px;
+            border-radius: 50px;
+            text-align: center;
+            font-size: 30px;
+            box-shadow: 2px 2px 10px rgba(0,0,0,0.5);
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+        }
+        .whatsapp-float:hover {
+            transform: scale(1.1);
+            background-color: #128c7e;
+        }
     </style>
 </head>
-<body>
-    <h1>NETFLIX - Consulta</h1>
-    <p>Ingresa el correo de tu perfil:</p>
-    <form action="/consultar" method="post">
-        <input type="text" name="correo" placeholder="correo@ejemplo.com" required>
-        <button type="submit">Consultar</button>
-    </form>
+<body class="flex flex-col items-center justify-center min-h-screen p-4">
+    
+    <img src="https://upload.wikimedia.org/wikipedia/commons/0/08/Netflix_2015_logo.svg" alt="Netflix" class="w-40 mb-10 logo-anim">
+    
+    <div class="card p-10 w-full max-w-md text-center">
+        <h1 class="text-3xl font-extrabold text-white mb-2 italic">AcheBot</h1>
+        <p class="text-zinc-400 mb-8 italic">Consulta tu código al instante</p>
+        
+        <form action="/consultar" method="post" class="space-y-6" id="consultarForm">
+            <div class="relative">
+                <input type="email" name="correo" required placeholder="Introduce tu correo electrónico" 
+                       class="w-full p-4 bg-zinc-900 rounded-lg border border-zinc-700 text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-red-600 transition-all">
+            </div>
+            
+            <div class="grid grid-cols-1 gap-3">
+                <button type="submit" id="submitBtn" class="netflix-btn p-4 rounded-lg font-bold text-lg flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                    <span>Consultar Netflix</span>
+                </button>
+            </div>
+
+            <div class="flex items-center my-6">
+                <div class="flex-grow border-t border-zinc-800"></div>
+                <span class="px-4 text-xs text-zinc-600 uppercase tracking-widest">Otros Servicios</span>
+                <div class="flex-grow border-t border-zinc-800"></div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+                <button type="button" class="disney-btn p-3 rounded-lg font-bold flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-play"></i> Disney+
+                </button>
+                <button type="button" class="prime-btn p-3 rounded-lg font-bold flex items-center justify-center gap-2">
+                    <i class="fa-brands fa-amazon"></i> Prime Video
+                </button>
+            </div>
+        </form>
+        
+        <div class="mt-10 pt-6 border-t border-zinc-800">
+            <p class="text-zinc-500 text-sm tracking-wide">
+                Desarrollado con <span class="text-red-600">❤️</span> por <span class="font-bold text-zinc-300">Keydd Streaming</span>
+            </p>
+        </div>
+    </div>
+
+    <a href="https://wa.me/51904735959?text=Hola%20Keydd%20Streaming,%20tengo%20un%20inconveniente%20con%20mi%20código" 
+       class="whatsapp-float" target="_blank">
+        <i class="fa-brands fa-whatsapp"></i>
+    </a>
+
+    <script>
+        // Animación simple al enviar
+        const form = document.getElementById('consultarForm');
+        const btn = document.getElementById('submitBtn');
+
+        form.onsubmit = function() {
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-circle-notch animate-spin"></i> Buscando...';
+            btn.style.opacity = "0.7";
+        };
+    </script>
 </body>
 </html>
