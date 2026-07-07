@@ -7,12 +7,19 @@ import pandas as pd
 from datetime import datetime
 from flask import Flask, render_template, request, redirect
 
+# Importaciones oficiales de Google API
+from google.oauth2.credentials import Credentials
+from googleapiclient.discovery import build
+
 app = Flask(__name__)
 
 # ID único de tu Google Sheets
 SHEET_ID = "1zpNvnE-8snXa_8HmiHmd_uqmduL5S6V9"
 CSV_URL = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv"
 
+# =====================================================================
+# LÓGICA DE CONTROL DE CLIENTES (Google Sheets)
+# =====================================================================
 def verificar_cliente(celular_usuario):
     try:
         req = urllib.request.Request(CSV_URL, headers={'User-Agent': 'Mozilla/5.0'})
@@ -75,14 +82,54 @@ def verificar_cliente(celular_usuario):
         print(f"❌ Error crítico en verificación: {e}")
         return {"status": "error", "msg": "No se pudo procesar la base de datos."}
 
+
 # =====================================================================
-# PANTALLAS WEB (LOGIN / VERIFICACIÓN / AVISOS)
+# LÓGICA DE API DE GMAIL (Espejo de correo Netflix)
 # =====================================================================
+def get_gmail_service():
+    creds = None
+    token_path = '/etc/secrets/token.json' if os.path.exists('/etc/secrets/token.json') else 'token.json'
+    if os.path.exists(token_path):
+        creds = Credentials.from_authorized_user_file(token_path, ['https://www.googleapis.com/auth/gmail.readonly'])
+    return build('gmail', 'v1', credentials=creds)
+
+def obtener_html_netflix(correo_consulta):
+    try:
+        service = get_gmail_service()
+        # Buscamos el correo más reciente filtrando por remitente y palabras clave
+        query = f'from:netflix subject:(Hogar OR Actualizar) {correo_consulta}'
+        results = service.users().messages().list(userId='me', q=query, maxResults=1).execute()
+        messages = results.get('messages', [])
+        
+        if not messages:
+            return None
+            
+        msg = service.users().messages().get(userId='me', id=messages[0]['id'], format='full').execute()
+        payload = msg['payload']
+        body = ""
+        
+        if 'parts' in payload:
+            for part in payload['parts']:
+                if part['mimeType'] == 'text/html':
+                    body = base64.urlsafe_b64decode(part['body']['data']).decode('utf-8')
+                    break
+        else:
+            body = base64.urlsafe_b64decode(payload['body']['data']).decode('utf-8')
+            
+        return body
+    except Exception as e:
+        print(f"Error en Gmail: {e}")
+        return None
+
+
+# =====================================================================
+# PANTALLAS WEB FLASK
+# =====================================================================
+
+# 1. Página de login con diseño dividido moderno
 @app.route('/', methods=['GET'])
 def login_page():
-    # Ruta de tu imagen en la carpeta static
     foto_url = "/static/img/fondo.jpeg"
-    
     return f"""
     <html>
         <head>
@@ -98,8 +145,6 @@ def login_page():
                     width: 100vw;
                     overflow: hidden;
                 }}
-                
-                /* Columna Izquierda: Contenedor de la Imagen */
                 .col-izquierda {{
                     width: 50vw;
                     height: 100vh;
@@ -109,8 +154,6 @@ def login_page():
                     background-repeat: no-repeat;
                     border-right: 1px solid rgba(255, 255, 255, 0.05);
                 }}
-                
-                /* Columna Derecha: Contenedor del Formulario */
                 .col-derecha {{
                     width: 50vw;
                     height: 100vh;
@@ -119,7 +162,6 @@ def login_page():
                     align-items: center;
                     background-color: #141414;
                 }}
-                
                 .card {{ 
                     background-color: #000000; 
                     padding: 50px 40px; 
@@ -131,7 +173,6 @@ def login_page():
                     box-sizing: border-box;
                     box-shadow: 0px 4px 20px rgba(0, 0, 0, 0.5);
                 }}
-                
                 h2 {{ 
                     color: #E50914; 
                     margin-bottom: 12px; 
@@ -139,14 +180,12 @@ def login_page():
                     font-weight: bold; 
                     letter-spacing: -0.5px;
                 }}
-                
                 p {{ 
                     color: #8c8c8c; 
                     font-size: 14px; 
                     margin-bottom: 35px; 
                     line-height: 1.4; 
                 }}
-                
                 input[type="text"] {{ 
                     width: 100%; 
                     padding: 14px; 
@@ -158,12 +197,10 @@ def login_page():
                     font-size: 15px; 
                     box-sizing: border-box; 
                 }}
-                
                 input[type="text"]:focus {{ 
                     border-color: #E50914; 
                     outline: none; 
                 }}
-                
                 button {{ 
                     width: 100%; 
                     padding: 14px; 
@@ -176,29 +213,18 @@ def login_page():
                     cursor: pointer; 
                     transition: background 0.2s ease;
                 }}
-                
                 button:hover {{ 
                     background-color: #b81d24; 
                 }}
-
-                /* Adaptación para Celulares (Pantallas de menos de 768px) */
                 @media (max-width: 768px) {{
-                    .col-izquierda {{
-                        display: none; /* Esconde la columna de la imagen en celulares */
-                    }}
-                    .col-derecha {{
-                        width: 100vw; /* El formulario toma todo el ancho */
-                    }}
-                    .card {{
-                        border: none; /* Más limpio en pantallas pequeñas */
-                        background-color: transparent;
-                    }}
+                    .col-izquierda {{ display: none; }}
+                    .col-derecha {{ width: 100vw; }}
+                    .card {{ border: none; background-color: transparent; }}
                 }}
             </style>
         </head>
         <body>
             <div class="col-izquierda"></div>
-            
             <div class="col-derecha">
                 <div class="card">
                     <h2>Ingresar al Sistema</h2>
@@ -213,6 +239,7 @@ def login_page():
     </html>
     """
 
+# 2. Ruta de validación de credenciales y alertas de pago
 @app.route('/verificar', methods=['POST'])
 def verificar():
     celular = request.form.get('celular')
@@ -221,7 +248,7 @@ def verificar():
     if resultado["status"] == "ok":
         return redirect('/ver-codigo')
         
-    # Si le quedan de 1 a 5 días o vence hoy, mostramos la pantalla de recordatorio intermedio
+    # Pantalla amarilla de advertencia preventiva (Vence hoy o pronto)
     if resultado["status"] in ["aviso_hoy", "aviso_proximo"]:
         return f"""
         <html>
@@ -249,7 +276,7 @@ def verificar():
         </html>
         """
     
-    # Si está vencido o denegado, pantalla roja de bloqueo:
+    # Pantalla roja de bloqueo (Vencido o no registrado)
     return f"""
     <html>
         <body style="font-family: Arial, sans-serif; background-color: #141414; color: white; text-align: center; padding-top: 100px;">
@@ -264,54 +291,25 @@ def verificar():
     </html>
     """
 
-# =====================================================================
-# LÓGICA DE GMAIL (Tus funciones originales)
-# =====================================================================
-def get_gmail_service():
-    creds = None
-    token_path = '/etc/secrets/token.json' if os.path.exists('/etc/secrets/token.json') else 'token.json'
-    if os.path.exists(token_path):
-        from google.oauth2.credentials import Credentials
-        from googleapiclient.discovery import build
-        creds = Credentials.from_authorized_user_file(token_path, ['https://www.googleapis.com/auth/gmail.readonly'])
-    from googleapiclient.discovery import build
-    return build('gmail', 'v1', credentials=creds)
-
-def obtener_html_netflix(correo_consulta):
-    try:
-        service = get_gmail_service()
-        query = f'from:netflix subject:(Hogar OR Actualizar) {correo_consulta}'
-        results = service.users().messages().list(userId='me', q=query, maxResults=1).execute()
-        messages = results.get('messages', [])
-        if not messages:
-            return None
-        msg = service.users().messages().get(userId='me', id=messages[0]['id'], format='full').execute()
-        payload = msg['payload']
-        body = ""
-        if 'parts' in payload:
-            for part in payload['parts']:
-                if part['mimeType'] == 'text/html':
-                    body = base64.urlsafe_b64decode(part['body']['data']).decode('utf-8')
-                    break
-        else:
-            body = base64.urlsafe_b64decode(payload['body']['data']).decode('utf-8')
-        return body
-    except Exception as e:
-        print(f"Error en Gmail: {e}")
-        return None
-
+# 3. Interfaz de buscador de correos (Abre index.html)
 @app.route('/ver-codigo')
 def index():
     return render_template('index.html')
 
+# 4. Procesador de consulta de Gmail espejo
 @app.route('/consultar', methods=['POST'])
 def consultar():
     correo = request.form.get('correo', '').strip().lower()
     html_correo = obtener_html_netflix(correo)
+    
     if not html_correo:
         return render_template('resultado.html', error="No se encontró ningún correo reciente de Actualización de Hogar Netflix.")
+        
     return render_template('resultado.html', contenido_html=html_correo, email=correo)
 
+# =====================================================================
+# ARRANQUE DE LA APLICACIÓN
+# =====================================================================
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port, debug=True)
