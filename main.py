@@ -95,14 +95,22 @@ def get_gmail_service():
 def obtener_html_netflix(correo_consulta):
     try:
         service = get_gmail_service()
-        query = f'from:netflix subject:(Hogar OR Actualizar) {correo_consulta}'
-        results = service.users().messages().list(userId='me', q=query, maxResults=1).execute()
+        
+        # Volvemos a tu query original limpia que sí te funcionaba perfectamente
+        query = f'from:netflix {correo_consulta}'
+        
+        # Traemos una lista pequeña de los últimos correos (máximo 5)
+        results = service.users().messages().list(userId='me', q=query, maxResults=5).execute()
         messages = results.get('messages', [])
         
         if not messages:
             return None
             
-        msg = service.users().messages().get(userId='me', id=messages[0]['id'], format='full').execute()
+        # GMAIL entrega la lista siempre ordenada del MÁS RECIENTE al más antiguo.
+        # Al seleccionar estrictamente 'messages[0]', aseguramos jalar el último que ha entrado.
+        ultimo_mensaje_id = messages[0]['id']
+        
+        msg = service.users().messages().get(userId='me', id=ultimo_mensaje_id, format='full').execute()
         payload = msg['payload']
         body = ""
         
