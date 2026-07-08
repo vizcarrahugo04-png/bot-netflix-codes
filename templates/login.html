@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Soporte Netflix - Acceso</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+            * { box-sizing: border-box; }
+            body { 
+                font-family: Arial, sans-serif; 
+                margin: 0; padding: 0;
+                display: flex; justify-content: center; align-items: center;
+                min-height: 100vh; width: 100vw;
+                background-image: linear-gradient(rgba(0, 0, 0, 0.65), rgba(0, 0, 0, 0.65)), url('{{ foto_url }}');
+                background-size: cover; background-position: center; background-repeat: no-repeat; background-attachment: fixed;
+                background-color: #141414;
+            }
+            .container { width: 100%; max-width: 450px; padding: 20px; }
+            .card { 
+                background-color: rgba(0, 0, 0, 0.85); padding: 60px 40px; 
+                border-radius: 8px; text-align: center; border: 1px solid #333333; 
+                width: 100%; box-shadow: 0px 8px 30px rgba(0, 0, 0, 0.8);
+            }
+            h2 { color: #E50914; margin-top: 0; margin-bottom: 12px; font-size: 28px; font-weight: bold; letter-spacing: -0.5px; }
+            p { color: #caaaaa; font-size: 15px; margin-bottom: 35px; line-height: 1.5; }
+            input[type="text"] { width: 100%; padding: 14px; margin-bottom: 20px; border: 1px solid #333333; background-color: #333333; color: white; border-radius: 4px; font-size: 15px; }
+            input[type="text"]:focus { border-color: #E50914; outline: none; }
+            button { width: 100%; padding: 14px; background-color: #E50914; color: white; border: none; border-radius: 4px; font-size: 16px; font-weight: bold; cursor: pointer; transition: background 0.2s ease; }
+            button:hover { background-color: #b81d24; }
+            @media (max-width: 500px) {
+                .card { padding: 40px 20px; background-color: rgba(0, 0, 0, 0.9); border: none; }
+                h2 { font-size: 24px; }
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="card">
+                <h2>Ingresar al Sistema</h2>
+                <p>Escribe tu número de WhatsApp para solicitar tu código de Hogar Netflix.</p>
+                <form action="/verificar" method="POST">
+                    <input type="text" name="celular" placeholder="Ej: 904735959" required>
+                    <button type="submit">Validar Acceso</button>
+                </form>
+            </div>
+        </div>
+    </body>
+</html>

@@ -65,7 +65,6 @@ def verificar_cliente(celular_usuario):
             return {"status": "error", "msg": "No se pudo determinar tu fecha de vencimiento."}
             
         hoy = datetime.now().date()
-        # Calculamos la diferencia de días exactos que le quedan
         dias_restantes = (fecha_corte - hoy).days
         print(f"📅 Corte: {fecha_corte} | Hoy: {hoy} | Días restantes: {dias_restantes}")
         
@@ -96,7 +95,6 @@ def get_gmail_service():
 def obtener_html_netflix(correo_consulta):
     try:
         service = get_gmail_service()
-        # Buscamos el correo más reciente filtrando por remitente y palabras clave
         query = f'from:netflix subject:(Hogar OR Actualizar) {correo_consulta}'
         results = service.users().messages().list(userId='me', q=query, maxResults=1).execute()
         messages = results.get('messages', [])
@@ -123,123 +121,16 @@ def obtener_html_netflix(correo_consulta):
 
 
 # =====================================================================
-# PANTALLAS WEB FLASK
+# RUTAS Y NAVEGACIÓN (Flask)
 # =====================================================================
 
-# 1. Página de login con diseño dividido moderno
+# 1. Pantalla principal de acceso (PC y Celular con imagen de fondo fija)
 @app.route('/', methods=['GET'])
 def login_page():
-    foto_url = "/static/img/fondo.jpeg"
-    return f"""
-    <html>
-        <head>
-            <title>Soporte Netflix - Acceso</title>
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <style>
-                body {{ 
-                    font-family: Arial, sans-serif; 
-                    background-color: #141414; 
-                    margin: 0; 
-                    display: flex;
-                    height: 100vh;
-                    width: 100vw;
-                    overflow: hidden;
-                }}
-                .col-izquierda {{
-                    width: 50vw;
-                    height: 100vh;
-                    background-image: url('{foto_url}');
-                    background-size: cover;
-                    background-position: center;
-                    background-repeat: no-repeat;
-                    border-right: 1px solid rgba(255, 255, 255, 0.05);
-                }}
-                .col-derecha {{
-                    width: 50vw;
-                    height: 100vh;
-                    display: flex;
-                    justify-content: center;
-                    align-items: center;
-                    background-color: #141414;
-                }}
-                .card {{ 
-                    background-color: #000000; 
-                    padding: 50px 40px; 
-                    border-radius: 8px; 
-                    text-align: center; 
-                    border: 1px solid #222222; 
-                    max-width: 400px; 
-                    width: 100%; 
-                    box-sizing: border-box;
-                    box-shadow: 0px 4px 20px rgba(0, 0, 0, 0.5);
-                }}
-                h2 {{ 
-                    color: #E50914; 
-                    margin-bottom: 12px; 
-                    font-size: 26px; 
-                    font-weight: bold; 
-                    letter-spacing: -0.5px;
-                }}
-                p {{ 
-                    color: #8c8c8c; 
-                    font-size: 14px; 
-                    margin-bottom: 35px; 
-                    line-height: 1.4; 
-                }}
-                input[type="text"] {{ 
-                    width: 100%; 
-                    padding: 14px; 
-                    margin-bottom: 20px; 
-                    border: 1px solid #333333; 
-                    background-color: #333333; 
-                    color: white; 
-                    border-radius: 4px; 
-                    font-size: 15px; 
-                    box-sizing: border-box; 
-                }}
-                input[type="text"]:focus {{ 
-                    border-color: #E50914; 
-                    outline: none; 
-                }}
-                button {{ 
-                    width: 100%; 
-                    padding: 14px; 
-                    background-color: #E50914; 
-                    color: white; 
-                    border: none; 
-                    border-radius: 4px; 
-                    font-size: 16px; 
-                    font-weight: bold; 
-                    cursor: pointer; 
-                    transition: background 0.2s ease;
-                }}
-                button:hover {{ 
-                    background-color: #b81d24; 
-                }}
-                @media (max-width: 768px) {{
-                    .col-izquierda {{ display: none; }}
-                    .col-derecha {{ width: 100vw; }}
-                    .card {{ border: none; background-color: transparent; }}
-                }}
-            </style>
-        </head>
-        <body>
-            <div class="col-izquierda"></div>
-            <div class="col-derecha">
-                <div class="card">
-                    <h2>Ingresar al Sistema</h2>
-                    <p>Escribe tu número de WhatsApp para solicitar tu código de Hogar Netflix.</p>
-                    <form action="/verificar" method="POST">
-                        <input type="text" name="celular" placeholder="Ej: 904735959" required>
-                        <button type="submit">Validar Acceso</button>
-                    </form>
-                </div>
-            </div>
-        </body>
-    </html>
-    """
+    foto = "/static/img/fondo.jpeg"
+    return render_template('login.html', foto_url=foto)
 
-# 2. Ruta de validación de credenciales y alertas de pago
+# 2. Procesador de validación de WhatsApp y alertas de pago
 @app.route('/verificar', methods=['POST'])
 def verificar():
     celular = request.form.get('celular')
@@ -248,55 +139,17 @@ def verificar():
     if resultado["status"] == "ok":
         return redirect('/ver-codigo')
         
-    # Pantalla amarilla de advertencia preventiva (Vence hoy o pronto)
     if resultado["status"] in ["aviso_hoy", "aviso_proximo"]:
-        return f"""
-        <html>
-            <head>
-                <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <meta http-equiv="refresh" content="5;url=/ver-codigo">
-                <style>
-                    body {{ font-family: Arial, sans-serif; background-color: #141414; color: white; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }}
-                    .card {{ background-color: #000; padding: 40px; border-radius: 10px; text-align: center; border: 1px solid #ffcc00; max-width: 400px; box-shadow: 0px 4px 15px rgba(255, 204, 0, 0.2); }}
-                    h2 {{ color: #ffcc00; margin-bottom: 15px; font-size: 24px; }}
-                    p {{ font-size: 16px; color: #ddd; line-height: 1.5; }}
-                    .btn {{ display: inline-block; margin-top: 20px; color: black; background: #ffcc00; padding: 12px 25px; border-radius: 5px; text-decoration: none; font-weight: bold; }}
-                    .btn:hover {{ background: #e6b800; }}
-                    .loader {{ color: #aaa; font-size: 12px; margin-top: 15px; }}
-                </style>
-            </head>
-            <body>
-                <div class="card">
-                    <h2>⚠️ Recordatorio Importante</h2>
-                    <p>{resultado["msg"]}</p>
-                    <a href="/ver-codigo" class="btn">Entendido, Continuar</a>
-                    <div class="loader">Redirigiendo automáticamente en 5 segundos...</div>
-                </div>
-            </body>
-        </html>
-        """
+        return render_template('alerta.html', msg=resultado["msg"])
     
-    # Pantalla roja de bloqueo (Vencido o no registrado)
-    return f"""
-    <html>
-        <body style="font-family: Arial, sans-serif; background-color: #141414; color: white; text-align: center; padding-top: 100px;">
-            <div style="display: inline-block; background: #000; padding: 40px; border-radius: 10px; border: 1px solid #E50914; max-width: 400px; box-shadow: 0px 4px 15px rgba(0,0,0,0.5);">
-                <h2 style="color: #E50914;">Acceso Interrumpido</h2>
-                <p style="font-size: 16px; color: #ddd;">{resultado["msg"]}</p>
-                <p style="color: #aaa; font-size: 14px;">Por favor, comunícate con soporte para renovar tu servicio.</p>
-                <br>
-                <a href="/" style="color: white; background: #333; padding: 10px 20px; border-radius: 5px; text-decoration: none; font-weight: bold;">Volver</a>
-            </div>
-        </body>
-    </html>
-    """
+    return render_template('bloqueo.html', msg=resultado["msg"])
 
-# 3. Interfaz de buscador de correos (Abre index.html)
+# 3. Interfaz del buscador de correos recientes
 @app.route('/ver-codigo')
 def index():
     return render_template('index.html')
 
-# 4. Procesador de consulta de Gmail espejo
+# 4. Buscador y renderizador de HTML espejo de Netflix
 @app.route('/consultar', methods=['POST'])
 def consultar():
     correo = request.form.get('correo', '').strip().lower()
@@ -306,6 +159,7 @@ def consultar():
         return render_template('resultado.html', error="No se encontró ningún correo reciente de Actualización de Hogar Netflix.")
         
     return render_template('resultado.html', contenido_html=html_correo, email=correo)
+
 
 # =====================================================================
 # ARRANQUE DE LA APLICACIÓN
