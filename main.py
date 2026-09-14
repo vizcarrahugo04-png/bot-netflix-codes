@@ -92,39 +92,58 @@ def get_gmail_service():
         creds = Credentials.from_authorized_user_file(token_path, ['https://www.googleapis.com/auth/gmail.readonly'])
     return build('gmail', 'v1', credentials=creds)
 
+def extraer_html_recursivo(payload):
+    """ Función auxiliar para extraer el HTML incluso si está anidado en subpartes MIME """
+    if payload.get('mimeType') == 'text/html' and 'data' in payload.get('body', {}):
+        return base64.urlsafe_b64decode(payload['body']['data']).decode('utf-8', errors='ignore')
+    
+    if 'parts' in payload:
+        for part in payload['parts']:
+            html = extraer_html_recursivo(part)
+            if html:
+                return html
+    return None
+
 def obtener_html_netflix(correo_consulta):
     try:
         service = get_gmail_service()
         
-        # Volvemos a tu query original limpia que sí te funcionaba perfectamente
-        query = f'from:netflix {correo_consulta}'
+        # 1. Buscamos primero en los hilos recientes de los últimos 2 días
+        query = f'from:netflix {correo_consulta} newer_than:2d'
+        print(f"🔍 [GMAIL LOG] Buscando correo con query: {query}")
         
-        # Traemos una lista pequeña de los últimos correos (máximo 5)
-        results = service.users().messages().list(userId='me', q=query, maxResults=5).execute()
-        messages = results.get('messages', [])
+        results = service.users().threads().list(userId='me', q=query, maxResults=3).execute()
+        threads = results.get('threads', [])
         
-        if not messages:
+        # Si no hay de los últimos 2 días, hacemos la búsqueda general
+        if not threads:
+            print("⚠️ [GMAIL LOG] No se encontraron hilos de los últimos 2 días. Buscando en general...")
+            query_general = f'from:netflix {correo_consulta}'
+            results = service.users().threads().list(userId='me', q=query_general, maxResults=1).execute()
+            threads = results.get('threads', [])
+
+        if not threads:
+            print("❌ [GMAIL LOG] No se encontró ningún hilo de correo para esta consulta.")
             return None
-            
-        # GMAIL entrega la lista siempre ordenada del MÁS RECIENTE al más antiguo.
-        # Al seleccionar estrictamente 'messages[0]', aseguramos jalar el último que ha entrado.
-        ultimo_mensaje_id = messages[0]['id']
+
+        # 2. Obtenemos el detalle del hilo más reciente
+        ultimo_thread_id = threads[0]['id']
+        thread_detail = service.users().threads().get(userId='me', id=ultimo_thread_id).execute()
         
-        msg = service.users().messages().get(userId='me', id=ultimo_mensaje_id, format='full').execute()
-        payload = msg['payload']
-        body = ""
+        mensajes = thread_detail.get('messages', [])
+        if not mensajes:
+            return None
+
+        # 3. Extraemos el ÚLTIMO mensaje dentro del hilo (el recién llegado)
+        ultimo_mensaje = mensajes[-1]
+        print(f"📩 [GMAIL LOG] Extrayendo contenido del mensaje ID: {ultimo_mensaje['id']}")
         
-        if 'parts' in payload:
-            for part in payload['parts']:
-                if part['mimeType'] == 'text/html':
-                    body = base64.urlsafe_b64decode(part['body']['data']).decode('utf-8')
-                    break
-        else:
-            body = base64.urlsafe_b64decode(payload['body']['data']).decode('utf-8')
-            
-        return body
+        # 4. Decodificamos el HTML usando la función auxiliar
+        body_html = extraer_html_recursivo(ultimo_mensaje['payload'])
+        return body_html
+
     except Exception as e:
-        print(f"Error en Gmail: {e}")
+        print(f"❌ Error crítico en API de Gmail: {e}")
         return None
 
 
