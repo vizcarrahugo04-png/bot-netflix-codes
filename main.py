@@ -93,37 +93,36 @@ def get_gmail_service():
     return build('gmail', 'v1', credentials=creds)
 
 def extraer_html_recursivo(payload):
-    """ Función auxiliar para extraer el HTML incluso si está anidado en subpartes MIME """
+    """ Busca recursivamente el cuerpo HTML en cualquier sub-nivel del mensaje """
+    if not payload:
+        return None
+        
+    # Si esta parte es directamente el HTML
     if payload.get('mimeType') == 'text/html' and 'data' in payload.get('body', {}):
         return base64.urlsafe_b64decode(payload['body']['data']).decode('utf-8', errors='ignore')
     
+    # Si tiene subpartes (multipartes), las recorremos todas
     if 'parts' in payload:
         for part in payload['parts']:
             html = extraer_html_recursivo(part)
             if html:
                 return html
+                
     return None
 
 def obtener_html_netflix(correo_consulta):
     try:
         service = get_gmail_service()
         
-        # 1. Buscamos primero en los hilos recientes de los últimos 2 días
-        query = f'from:netflix {correo_consulta} newer_than:2d'
-        print(f"🔍 [GMAIL LOG] Buscando correo con query: {query}")
+        # 1. Búsqueda amplia que incluye Spam/Papelera (in:anywhere) y variaciones de remitente
+        query = f'in:anywhere netflix "{correo_consulta}"'
+        print(f"🔍 [GMAIL LOG] Consultando query: {query}")
         
         results = service.users().threads().list(userId='me', q=query, maxResults=3).execute()
         threads = results.get('threads', [])
-        
-        # Si no hay de los últimos 2 días, hacemos la búsqueda general
-        if not threads:
-            print("⚠️ [GMAIL LOG] No se encontraron hilos de los últimos 2 días. Buscando en general...")
-            query_general = f'from:netflix {correo_consulta}'
-            results = service.users().threads().list(userId='me', q=query_general, maxResults=1).execute()
-            threads = results.get('threads', [])
 
         if not threads:
-            print("❌ [GMAIL LOG] No se encontró ningún hilo de correo para esta consulta.")
+            print("❌ [GMAIL LOG] No se encontró ningún hilo de correo para este cliente.")
             return None
 
         # 2. Obtenemos el detalle del hilo más reciente
@@ -134,16 +133,16 @@ def obtener_html_netflix(correo_consulta):
         if not mensajes:
             return None
 
-        # 3. Extraemos el ÚLTIMO mensaje dentro del hilo (el recién llegado)
+        # 3. Tomamos el ÚLTIMO mensaje recibido dentro de la cadena
         ultimo_mensaje = mensajes[-1]
-        print(f"📩 [GMAIL LOG] Extrayendo contenido del mensaje ID: {ultimo_mensaje['id']}")
+        print(f"📩 [GMAIL LOG] Procesando mensaje ID: {ultimo_mensaje['id']}")
         
-        # 4. Decodificamos el HTML usando la función auxiliar
+        # 4. Extraemos el HTML garantizando navegar por subpartes
         body_html = extraer_html_recursivo(ultimo_mensaje['payload'])
         return body_html
 
     except Exception as e:
-        print(f"❌ Error crítico en API de Gmail: {e}")
+        print(f"❌ Error en API de Gmail: {e}")
         return None
 
 
