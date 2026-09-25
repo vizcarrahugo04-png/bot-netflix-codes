@@ -114,35 +114,31 @@ def obtener_html_netflix(correo_consulta):
     try:
         service = get_gmail_service()
         
-        # 1. Búsqueda amplia que incluye Spam/Papelera (in:anywhere) y variaciones de remitente
-        query = f'in:anywhere netflix "{correo_consulta}"'
-        print(f"🔍 [GMAIL LOG] Consultando query: {query}")
+        # 1. Búsqueda directa por mensaje individual ordenado por fecha
+        query = f'netflix {correo_consulta}'
+        print(f"🔍 [GMAIL LOG] Buscando el mensaje más reciente con query: {query}")
         
-        results = service.users().threads().list(userId='me', q=query, maxResults=3).execute()
-        threads = results.get('threads', [])
+        # Pedimos los 5 mensajes más recientes que coincidan
+        results = service.users().messages().list(userId='me', q=query, maxResults=5).execute()
+        messages = results.get('messages', [])
 
-        if not threads:
-            print("❌ [GMAIL LOG] No se encontró ningún hilo de correo para este cliente.")
+        if not messages:
+            print("❌ [GMAIL LOG] No se encontró ningún mensaje para este correo.")
             return None
 
-        # 2. Obtenemos el detalle del hilo más reciente
-        ultimo_thread_id = threads[0]['id']
-        thread_detail = service.users().threads().get(userId='me', id=ultimo_thread_id).execute()
+        # 2. Gmail entrega 'messages' ordenado de más reciente a más antiguo.
+        # Por lo tanto, messages[0] ES EL ÚLTIMO MENSAJE RECIBIDO.
+        ultimo_msg_id = messages[0]['id']
+        print(f"📩 [GMAIL LOG] Obteniendo el último mensaje recibido (ID: {ultimo_msg_id})")
         
-        mensajes = thread_detail.get('messages', [])
-        if not mensajes:
-            return None
-
-        # 3. Tomamos el ÚLTIMO mensaje recibido dentro de la cadena
-        ultimo_mensaje = mensajes[-1]
-        print(f"📩 [GMAIL LOG] Procesando mensaje ID: {ultimo_mensaje['id']}")
+        msg_detail = service.users().messages().get(userId='me', id=ultimo_msg_id, format='full').execute()
         
-        # 4. Extraemos el HTML garantizando navegar por subpartes
-        body_html = extraer_html_recursivo(ultimo_mensaje['payload'])
+        # 3. Extraemos el HTML usando la función recursiva
+        body_html = extraer_html_recursivo(msg_detail.get('payload', {}))
         return body_html
 
     except Exception as e:
-        print(f"❌ Error en API de Gmail: {e}")
+        print(f"❌ Error crítico en API de Gmail: {e}")
         return None
 
 
