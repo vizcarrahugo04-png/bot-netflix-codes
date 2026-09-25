@@ -114,22 +114,22 @@ def obtener_html_netflix(correo_consulta):
     try:
         service = get_gmail_service()
         
-        # 1. Búsqueda directa por mensaje individual ordenado por fecha
-        query = f'netflix {correo_consulta}'
-        print(f"🔍 [GMAIL LOG] Buscando el mensaje más reciente con query: {query}")
+        # 1. Filtro estricto: Busca en todas las carpetas (in:anywhere) solo mensajes que contengan
+        # el correo del cliente Y las frases exactas de "Hogar" o "Código".
+        query = f'in:anywhere netflix {correo_consulta} ("actualizar tu hogar" OR "hogar netflix" OR "código" OR "codigo" OR "posees un código" OR "tu código de acceso")'
+        print(f"🔍 [GMAIL LOG] Buscando correo específico con query: {query}")
         
-        # Pedimos los 5 mensajes más recientes que coincidan
+        # Consultamos los mensajes individuales ordenados cronológicamente
         results = service.users().messages().list(userId='me', q=query, maxResults=5).execute()
         messages = results.get('messages', [])
 
         if not messages:
-            print("❌ [GMAIL LOG] No se encontró ningún mensaje para este correo.")
+            print("❌ [GMAIL LOG] No se encontró ningún correo de Hogar o Código para esta cuenta.")
             return None
 
-        # 2. Gmail entrega 'messages' ordenado de más reciente a más antiguo.
-        # Por lo tanto, messages[0] ES EL ÚLTIMO MENSAJE RECIBIDO.
+        # 2. messages[0] es ESTRICTAMENTE el último correo recibido que cumple con las palabras clave
         ultimo_msg_id = messages[0]['id']
-        print(f"📩 [GMAIL LOG] Obteniendo el último mensaje recibido (ID: {ultimo_msg_id})")
+        print(f"📩 [GMAIL LOG] Cargando mensaje más reciente (ID: {ultimo_msg_id})")
         
         msg_detail = service.users().messages().get(userId='me', id=ultimo_msg_id, format='full').execute()
         
