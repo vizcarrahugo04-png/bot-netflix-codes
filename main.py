@@ -5,13 +5,14 @@ import io
 import urllib.request
 import pandas as pd
 from datetime import datetime
-from flask import Flask, render_template, request, redirect
+from flask import Flask, render_template, request, redirect, session
 
 # Importaciones oficiales de Google API
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 
 app = Flask(__name__)
+app.secret_key = os.environ.get("FLASK_SECRET_KEY") or os.urandom(32)
 
 # ID único de tu Google Sheets
 SHEET_ID = "1zpNvnE-8snXa_8HmiHmd_uqmduL5S6V9"
@@ -20,21 +21,37 @@ CSV_URL = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv"
 # =====================================================================
 # LÓGICA DE CONTROL DE CLIENTES (Google Sheets)
 # =====================================================================
+def normalizar_celular(valor):
+    texto = str(valor).strip()
+    if re.fullmatch(r"\d+\.0", texto):
+        texto = texto[:-2]
+    if not re.fullmatch(r"\+?[\d\s().-]+", texto):
+        return None
+
+    digitos = re.sub(r"\D", "", texto)
+    if not 9 <= len(digitos) <= 15:
+        return None
+    return digitos
+
+
 def verificar_cliente(celular_usuario):
     try:
+        celular_usuario = normalizar_celular(celular_usuario)
+        if celular_usuario is None:
+            return {"status": "denegado", "msg": "Ingresa un número de celular válido."}
+
         req = urllib.request.Request(CSV_URL, headers={'User-Agent': 'Mozilla/5.0'})
         with urllib.request.urlopen(req, timeout=10) as response:
             data = response.read()
             
-        df = pd.read_csv(io.BytesIO(data), header=None)
-        celular_usuario = str(celular_usuario).strip().replace(r'\.0$', '')
+        df = pd.read_csv(io.BytesIO(data), header=None, dtype=str, keep_default_na=False)
         
         print(f"\n--- [BOT LOG] Buscando el celular: {celular_usuario} ---")
         
         fila_cliente = None
         for idx, fila in df.iterrows():
-            texto_fila = " ".join(fila.astype(str).tolist())
-            if celular_usuario in texto_fila:
+            celulares_fila = (normalizar_celular(celda) for celda in fila)
+            if celular_usuario in celulares_fila:
                 fila_cliente = fila
                 print("✅ ¡Cliente localizado en la base de datos!")
                 break
@@ -155,25 +172,34 @@ def login_page():
 # 2. Procesador de validación de WhatsApp y alertas de pago
 @app.route('/verificar', methods=['POST'])
 def verificar():
-    celular = request.form.get('celular')
+    celular = request.form.get('celular', '').strip()
     resultado = verificar_cliente(celular)
     
+    if resultado["status"] in ["ok", "aviso_hoy", "aviso_proximo"]:
+        session["cliente_verificado"] = True
+
     if resultado["status"] == "ok":
         return redirect('/ver-codigo')
         
     if resultado["status"] in ["aviso_hoy", "aviso_proximo"]:
         return render_template('alerta.html', msg=resultado["msg"])
     
+    session.clear()
     return render_template('bloqueo.html', msg=resultado["msg"])
 
 # 3. Interfaz del buscador de correos recientes
 @app.route('/ver-codigo')
 def index():
+    if session.get("cliente_verificado") is not True:
+        return redirect('/')
     return render_template('index.html')
 
 # 4. Buscador y renderizador de HTML espejo de Netflix
 @app.route('/consultar', methods=['POST'])
 def consultar():
+    if session.get("cliente_verificado") is not True:
+        return redirect('/')
+
     correo = request.form.get('correo', '').strip().lower()
     html_correo = obtener_html_netflix(correo)
     
