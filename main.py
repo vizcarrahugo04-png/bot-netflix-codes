@@ -114,11 +114,9 @@ def extraer_html_recursivo(payload):
     if not payload:
         return None
         
-    # Si esta parte es directamente el HTML
     if payload.get('mimeType') == 'text/html' and 'data' in payload.get('body', {}):
         return base64.urlsafe_b64decode(payload['body']['data']).decode('utf-8', errors='ignore')
     
-    # Si tiene subpartes (multipartes), las recorremos todas
     if 'parts' in payload:
         for part in payload['parts']:
             html = extraer_html_recursivo(part)
@@ -131,26 +129,22 @@ def obtener_html_netflix(correo_consulta):
     try:
         service = get_gmail_service()
         
-        # 1. Filtro estricto: Busca en todas las carpetas (in:anywhere) solo mensajes que contengan
-        # el correo del cliente Y las frases exactas de "Hogar" o "Código".
-        query = f'in:anywhere netflix {correo_consulta} ("actualizar tu hogar" OR "hogar netflix" OR "código" OR "codigo" OR "posees un código" OR "tu código de acceso")'
-        print(f"🔍 [GMAIL LOG] Buscando correo específico con query: {query}")
+        # Búsqueda flexible y amplia con palabras clave esenciales
+        query = f'in:anywhere "{correo_consulta}" (hogar OR código OR codigo OR actualizar)'
+        print(f"🔍 [GMAIL LOG] Buscando correo más reciente con query: {query}")
         
-        # Consultamos los mensajes individuales ordenados cronológicamente
         results = service.users().messages().list(userId='me', q=query, maxResults=5).execute()
         messages = results.get('messages', [])
 
         if not messages:
-            print("❌ [GMAIL LOG] No se encontró ningún correo de Hogar o Código para esta cuenta.")
+            print("❌ [GMAIL LOG] No se encontró ningún correo reciente para esta cuenta.")
             return None
 
-        # 2. messages[0] es ESTRICTAMENTE el último correo recibido que cumple con las palabras clave
         ultimo_msg_id = messages[0]['id']
         print(f"📩 [GMAIL LOG] Cargando mensaje más reciente (ID: {ultimo_msg_id})")
         
         msg_detail = service.users().messages().get(userId='me', id=ultimo_msg_id, format='full').execute()
         
-        # 3. Extraemos el HTML usando la función recursiva
         body_html = extraer_html_recursivo(msg_detail.get('payload', {}))
         return body_html
 
@@ -163,16 +157,21 @@ def obtener_html_netflix(correo_consulta):
 # RUTAS Y NAVEGACIÓN (Flask)
 # =====================================================================
 
-# 1. Pantalla principal de acceso (PC y Celular con imagen de fondo fija)
 @app.route('/', methods=['GET'])
 def login_page():
     foto = "/static/img/fondo.jpeg"
     return render_template('login.html', foto_url=foto)
 
-# 2. Procesador de validación de WhatsApp y alertas de pago
 @app.route('/verificar', methods=['POST'])
 def verificar():
     celular = request.form.get('celular', '').strip()
+    
+    # 🔒 BLOQUEO ESTRICTO: Si ingresan un correo o texto no válido en vez de celular
+    if '@' in celular or not celular.replace('+', '').replace(' ', '').replace('-', '').isdigit():
+        print(f"⚠️ [SEGURIDAD] Intento de acceso bloqueado (correo o formato inválido): {celular}")
+        session.clear()
+        return render_template('bloqueo.html', msg="Acceso denegado. Debes introducir un número de celular válido, no un correo electrónico.")
+
     resultado = verificar_cliente(celular)
     
     if resultado["status"] in ["ok", "aviso_hoy", "aviso_proximo"]:
@@ -187,14 +186,12 @@ def verificar():
     session.clear()
     return render_template('bloqueo.html', msg=resultado["msg"])
 
-# 3. Interfaz del buscador de correos recientes
 @app.route('/ver-codigo')
 def index():
     if session.get("cliente_verificado") is not True:
         return redirect('/')
     return render_template('index.html')
 
-# 4. Buscador y renderizador de HTML espejo de Netflix
 @app.route('/consultar', methods=['POST'])
 def consultar():
     if session.get("cliente_verificado") is not True:
